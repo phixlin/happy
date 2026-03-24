@@ -1,0 +1,60 @@
+FROM node:20 AS deps
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates python3 make g++ build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV BUN_INSTALL=/root/.bun
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+RUN curl -fsSL https://bun.sh/install | bash
+
+WORKDIR /repo
+
+COPY package.json yarn.lock ./
+COPY scripts ./scripts
+COPY patches ./patches
+
+RUN mkdir -p packages/happy-app packages/happy-server packages/happy-cli packages/happy-wire
+
+COPY packages/happy-app/package.json packages/happy-app/
+COPY packages/happy-server/package.json packages/happy-server/
+COPY packages/happy-cli/package.json packages/happy-cli/
+COPY packages/happy-wire/package.json packages/happy-wire/
+
+COPY packages/happy-app/patches packages/happy-app/patches
+COPY packages/happy-server/prisma packages/happy-server/prisma
+COPY packages/happy-cli/scripts packages/happy-cli/scripts
+COPY packages/happy-cli/tools packages/happy-cli/tools
+
+RUN corepack enable \
+    && SKIP_HAPPY_WIRE_BUILD=1 yarn install --frozen-lockfile --ignore-engines
+
+COPY packages/happy-wire ./packages/happy-wire
+COPY packages/happy-server ./packages/happy-server
+
+RUN yarn workspace @slopus/happy-wire build
+RUN yarn workspace happy-server build:standalone
+
+FROM debian:bookworm-slim AS runner
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=deps /repo/packages/happy-server/dist ./dist
+
+RUN groupadd -r happy && useradd -r -g happy happy \
+    && chown -R happy:happy /app
+
+USER happy
+
+VOLUME ["/data"]
+
+EXPOSE 3005
+
+ENTRYPOINT ["./dist/happy-server"]
+CMD ["serve"]

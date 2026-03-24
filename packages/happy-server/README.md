@@ -52,6 +52,8 @@ This uses:
 
 Data persists in the `happy-data` Docker volume across container restarts.
 
+> 在 2 核 2G 这类低配主机上，可以使用我们提供的 [Docker Compose 指南](../../docs/deploy-compose.md) 来启用嵌入式 PGlite + 本地文件系统的轻量部署模式。
+
 ### Environment Variables
 
 | Variable | Required | Default | Description |

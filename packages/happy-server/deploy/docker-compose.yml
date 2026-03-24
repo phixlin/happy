@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  happy-server:
+    build:
+      context: ../../..
+      dockerfile: packages/happy-server/deploy/Dockerfile.compose
+    container_name: happy-server
+    env_file:
+      - ./happy-server.env
+    environment:
+      - DATA_DIR=/data
+      - PGLITE_DIR=/data/pglite
+      - METRICS_ENABLED=false
+    ports:
+      - "3005:3005"
+    volumes:
+      - happy_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  happy_data:
